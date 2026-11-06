@@ -1,6 +1,7 @@
 # Kubernetes Pods and Deployments
 
-This project contains two simple examples that run the NGINX web server in Kubernetes.
+This project contains simple examples that run the NGINX web server in Kubernetes.
+It includes one standalone Pod, one Deployment, and a Service that routes traffic to the Deployment Pods.
 
 ## What is a Pod?
 
@@ -36,7 +37,8 @@ kubectl describe pod nginx-pod
 
 A **Deployment** manages Pods for you. It creates and maintains a desired number of Pod replicas and replaces Pods that fail or are deleted.
 
-The [nginx-deployment.yaml](nginx-deployment.yaml) file creates three copies, or replicas, of the NGINX Pod.
+The [deployment.yaml](deployment.yaml) and [nginx-deployment.yaml](nginx-deployment.yaml) files
+create the same `nginx-deployment` Deployment with three copies, or replicas, of the NGINX Pod.
 
 ```text
 Deployment
@@ -55,7 +57,7 @@ It tells Kubernetes:
 ### Run the Deployment
 
 ```bash
-kubectl apply -f nginx-deployment.yaml
+kubectl apply -f deployment.yaml
 ```
 
 ### Check the Deployment
@@ -64,6 +66,58 @@ kubectl apply -f nginx-deployment.yaml
 kubectl get deployments
 kubectl get pods
 kubectl describe deployment nginx-deployment
+```
+
+## What is a Service?
+
+A **Service** provides a stable network endpoint for a set of Pods. The
+[service.yaml](service.yaml) file creates an `nginx-service` ClusterIP Service.
+
+The Service uses this selector:
+
+```yaml
+selector:
+  app: nginx
+```
+
+It finds the Pods created by the Deployment because those Pods have the matching
+`app: nginx` label. The Service exposes port `80` and forwards traffic to port `80`
+on each selected Pod.
+
+```text
+Client
+  |
+  v
+nginx-service (port 80)
+  |
+  +--> nginx Deployment Pod 1 (port 80)
+  +--> nginx Deployment Pod 2 (port 80)
+  +--> nginx Deployment Pod 3 (port 80)
+```
+
+### Run the Deployment and Service
+
+Apply both manifests:
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+```
+
+### Check the Service
+
+```bash
+kubectl get service nginx-service
+kubectl describe service nginx-service
+kubectl get endpoints nginx-service
+```
+
+`ClusterIP` makes the Service reachable only from inside the Kubernetes cluster.
+You can test it from another Pod in the cluster:
+
+```bash
+kubectl run curl-client --image=curlimages/curl --rm -it --restart=Never -- \
+  curl http://nginx-service
 ```
 
 ## Pod vs Deployment
@@ -77,14 +131,14 @@ kubectl describe deployment nginx-deployment
 
 ## Try Scaling
 
-Change `replicas` in `nginx-deployment.yaml`, then apply the file again:
+Change `replicas` in `deployment.yaml`, then apply the file again:
 
 ```yaml
 replicas: 5
 ```
 
 ```bash
-kubectl apply -f nginx-deployment.yaml
+kubectl apply -f deployment.yaml
 kubectl get pods
 ```
 
@@ -94,5 +148,6 @@ Delete the examples when finished:
 
 ```bash
 kubectl delete -f nginx-pod.yaml
-kubectl delete -f nginx-deployment.yaml
+kubectl delete -f service.yaml
+kubectl delete -f deployment.yaml
 ```
